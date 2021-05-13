@@ -105,31 +105,14 @@ namespace PursuitOnTheFly
 
         private static void DoPursuitStuff(Ped ped)
         {
-            //var isInPursuit = Functions.IsPedInPursuit(ped);
-            //Game.LogTrivial($"Pursuit on the Fly: Ped in pursuit - {isInPursuit}");
-            //if (!isInPursuit)
-            //{
-                Game.LogTrivial("Pursuit on the Fly: Getting active pursuit or creating one.");
-                var pursuit = Functions.GetActivePursuit() ?? Functions.CreatePursuit();
-                Game.LogTrivial("Pursuit on the Fly: Pursuit successful, adding ped to pursuit.");
-                Functions.AddPedToPursuit(pursuit, ped);
-                Game.LogTrivial("Pursuit on the Fly: Ped successfully added to pursuit, setting active for player.");
-                Functions.SetPursuitIsActiveForPlayer(pursuit, true);
-                Game.LogTrivial("Pursuit on the Fly: Pursuit is active for player.");            
-            //}
-
-            //var previouslyTagged = chasedPeds.Any(p => p.Equals(ped));
-            //Game.LogTrivial($"Pursuit on the Fly: Ped previously tagged - {previouslyTagged}");
-
-            //if (!previouslyTagged && !isInPursuit)
-            //{
-            //    chasedPeds.Add(ped);
-            //    Functions.SetPursuitDisableAIForPed(ped, true);                
-            //}
-            //else if (previouslyTagged)
-            //{
-            //    Functions.SetPursuitDisableAIForPed(ped, false);
-            //}
+            Game.LogTrivial("Pursuit on the Fly: Getting active pursuit or creating one.");
+            var pursuit = Functions.GetActivePursuit() ?? Functions.CreatePursuit();
+            Functions.SetPursuitInvestigativeMode(pursuit, true);
+            Game.LogTrivial("Pursuit on the Fly: Pursuit successful, adding ped to pursuit.");
+            Functions.AddPedToPursuit(pursuit, ped);
+            Game.LogTrivial("Pursuit on the Fly: Ped successfully added to pursuit, setting active for player.");
+            Functions.SetPursuitIsActiveForPlayer(pursuit, true);
+            Game.LogTrivial("Pursuit on the Fly: Pursuit is active for player.");
         }
 
         private static bool IsPedValid(Ped ped)
