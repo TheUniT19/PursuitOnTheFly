@@ -1,19 +1,20 @@
 ﻿using LSPD_First_Response.Mod.API;
+using PursuitOnTheFly.Misc;
 using Rage;
 using Rage.Native;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
-namespace PursuitOnTheFly
+namespace PursuitOnTheFly.PotfLogic
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Keine allgemeinen Ausnahmetypen abfangen", Justification = "<Ausstehend>")]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1303:Literale nicht als lokalisierte Parameter übergeben", Justification = "<Ausstehend>")]
-    public static class Logic
+    internal static class PursuitOnTheFly
     {
-        //private static readonly List<Ped> chasedPeds = new List<Ped>();
-        public static void MainLogic()
-        {            
+        private static ConfigurationContainer Configuration;
+        internal static void TryForce(ConfigurationContainer configuration)
+        {
+            Configuration = configuration;
             var entity = GetEntityPlayerIsAimingAt();
             if (entity is null)
             {
@@ -21,81 +22,80 @@ namespace PursuitOnTheFly
             }
             if (entity is Ped)
             {
-                Game.LogTrivial($"Pursuit on the Fly: Entity is Ped.");
-                DoPedStuff((Ped)entity);
-                Game.LogTrivial("Pursuit on the Fly: TASK FINISHED.");
+                Extensions.LogTrivial($"Entity is Ped.");
+                ForceOnPed((Ped)entity);
+                Extensions.LogTrivial($"TASK FINISHED.");
                 return;
             }
             if (entity is Vehicle)
             {
-                Game.LogTrivial($"Pursuit on the Fly: Entity is Vehicle.");
-                DoVehicleStuff((Vehicle)entity);
-                Game.LogTrivial("Pursuit on the Fly: TASK FINISHED.");
+                Extensions.LogTrivial($"Entity is Vehicle.");
+                ForceOnVehicle((Vehicle)entity);
+                Extensions.LogTrivial($"TASK FINISHED.");
                 return;
             }
-            Game.LogTrivial($"Pursuit on the Fly: Entity is {entity.GetType()}, what the hell are you trying to do??? END");
+            Extensions.LogTrivial($"Entity is {entity.GetType()}, what exactly are you trying to do? END");
         }
 
         private static Entity GetEntityPlayerIsAimingAt()
         {
             try
             {
-                Game.LogTrivial("Pursuit on the Fly: Attempting to get entity aimed at.");
+                Extensions.LogTrivial($"Attempting to get entity aimed at.");
                 unsafe
                 {
                     uint entityHandle;
                     NativeFunction.Natives.x2975C866E6713290(Game.LocalPlayer, new IntPtr(&entityHandle)); // Stores the entity the player is aiming at in the uint provided in the second parameter.
                     var entPlayerAimingAt = World.GetEntityByHandle<Entity>(entityHandle);
-                    Game.LogTrivial("Pursuit on the Fly: Succesfully got entity");
+                    Extensions.LogTrivial($"Succesfully got entity");
                     return entPlayerAimingAt;
                 }
             }
             catch
             {
-                Game.LogTrivial("Pursuit on the Fly: The player was not aiming at an entity. END");
+                Extensions.LogTrivial($"The player was not aiming at an entity. END");
                 return null;
             }
         }
 
-        private static void DoPedStuff(Ped ped)
+        private static void ForceOnPed(Ped ped)
         {
-            Game.LogTrivial("Pursuit on the Fly: Doing ped specific actions.");
+            Extensions.LogTrivial($"Trying to force pursuit on ped.");
             if (IsPedValid(ped))
             {
                 if (ped.IsInAnyVehicle(atGetIn: false))
                 {
-                    Game.LogTrivial("Pursuit on the Fly: Ped is in vehicle, doing vehicle specific actions.");
-                    DoVehicleStuff(ped.CurrentVehicle);
+                    Extensions.LogTrivial($"Ped is in vehicle, doing vehicle specific actions.");
+                    ForceOnVehicle(ped.CurrentVehicle);
                 }
                 else
                 {
-                    DoPursuitStuff(ped);
+                    DoForcePursuit(ped);
                     Functions.PlayScannerAudioUsingPosition("ATTENTION_ALL_UNITS OFFICERS_REPORT CRIME_RESIST_ARREST_04 IN_OR_ON_POSITION INTRO_1 UNITS_RESPOND_CODE_03", ped.Position);
                 }
             }
         }
 
-        private static void DoVehicleStuff(Vehicle vehicle)
+        private static void ForceOnVehicle(Vehicle vehicle)
         {
-            Game.LogTrivial("Pursuit on the Fly: Doing vehicle specific actions.");
+            Extensions.LogTrivial($"Trying to force pursuit on vehicle.");
             if (IsVehicleValid(vehicle))
             {
                 var validPeds = vehicle.Occupants.Where(occupant => IsPedValid(occupant));
                 if (validPeds.Any())
                 {
-                    Game.LogTrivial("Pursuit on the Fly: Valid peds in vehicle.");
-                    Game.LogTrivial("Pursuit on the Fly: Checking if vehicle is pulled over.");
+                    Extensions.LogTrivial($"Valid peds in vehicle.");
+                    Extensions.LogTrivial($"Checking if vehicle is pulled over.");
                     var currentPullover = Functions.GetCurrentPullover();
                     if (!(currentPullover is null) && Functions.GetPulloverSuspect(currentPullover).CurrentVehicle == vehicle)
                     {
-                        Game.LogTrivial("Pursuit on the Fly: Vehicle is pulled over, forcing to end.");
+                        Extensions.LogTrivial($"Vehicle is pulled over, forcing to end.");
                         Functions.ForceEndCurrentPullover();
                     }
-
-                    Game.LogTrivial("Pursuit on the Fly: Starting pursuit for valid peds.");
+                    Extensions.LogTrivial($"Starting pursuit for valid peds.");
                     foreach (var ped in validPeds)
                     {
-                        DoPursuitStuff(ped);
+                        DoForcePursuit(ped);
                     }
 
                     Functions.PlayScannerAudioUsingPosition("ATTENTION_ALL_UNITS OFFICERS_REPORT CRIME_RESIST_ARREST_04 IN_OR_ON_POSITION INTRO_1 UNITS_RESPOND_CODE_03", vehicle.Position);
@@ -103,16 +103,25 @@ namespace PursuitOnTheFly
             }
         }
 
-        private static void DoPursuitStuff(Ped ped)
+        private static void DoForcePursuit(Ped ped)
         {
-            Game.LogTrivial("Pursuit on the Fly: Getting active pursuit or creating one.");
-            var pursuit = Functions.GetActivePursuit() ?? Functions.CreatePursuit();
-            Functions.SetPursuitInvestigativeMode(pursuit, true);
-            Game.LogTrivial("Pursuit on the Fly: Pursuit successful, adding ped to pursuit.");
+            Extensions.LogTrivial($"Getting active pursuit or creating one.");
+
+            var pursuit = Functions.GetActivePursuit();
+
+            if (pursuit is null)
+            {
+                pursuit = Functions.CreatePursuit();
+
+                if (Configuration.AllowInvestigation)
+                    Functions.SetPursuitInvestigativeMode(pursuit, true);
+            }
+
+            Extensions.LogTrivial($"Pursuit successful, adding ped to pursuit.");
             Functions.AddPedToPursuit(pursuit, ped);
-            Game.LogTrivial("Pursuit on the Fly: Ped successfully added to pursuit, setting active for player.");
+            Extensions.LogTrivial($"Ped successfully added to pursuit, setting active for player.");
             Functions.SetPursuitIsActiveForPlayer(pursuit, true);
-            Game.LogTrivial("Pursuit on the Fly: Pursuit is active for player.");
+            Extensions.LogTrivial($"Pursuit is active for player.");
         }
 
         private static bool IsPedValid(Ped ped)
@@ -130,8 +139,8 @@ namespace PursuitOnTheFly
                 !Functions.IsPedGettingArrested(ped) &&
                 !Functions.IsPedInPrison(ped);
 
-            var end = (result) ? "" : " For this Ped: END";
-            Game.LogTrivial($"Pursuit on the Fly: Ped is valid -- {result}.{end}");
+            var end = result ? "" : " For this Ped: END";
+            Extensions.LogTrivial($"Ped is valid -- {result}.{end}");
 
             return result;
         }
@@ -161,8 +170,8 @@ namespace PursuitOnTheFly
                 !vehicle.IsTrailer &&
                 !vehicle.IsTrain;
 
-            var end = (result) ? "" : " END";
-            Game.LogTrivial($"Pursuit on the Fly: Vehicle is valid -- {result}.{end}");
+            var end = result ? "" : " END";
+            Extensions.LogTrivial($"Vehicle is valid -- {result}.{end}");
 
             return result;
         }

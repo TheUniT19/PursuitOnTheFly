@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("PursuitOnTheFly")]
-[assembly: AssemblyCopyright("Copyright ©TheUniT 2020")]
+[assembly: AssemblyCopyright("Copyright ©TheUniT 2022")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
